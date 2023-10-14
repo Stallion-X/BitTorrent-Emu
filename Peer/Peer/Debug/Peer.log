@@ -1,0 +1,30 @@
+﻿  Peer.cpp
+c:\users\only\source\repos\peer\peer\peer.cpp(196): warning C4477: “printf”: 格式字符串“%1ld”需要类型“long”的参数，但可变参数 1 拥有了类型“__int64”
+  c:\users\only\source\repos\peer\peer\peer.cpp(196): note: 请考虑在格式字符串中使用“%lld”
+  c:\users\only\source\repos\peer\peer\peer.cpp(196): note: 请考虑在格式字符串中使用“%I64d”
+c:\users\only\source\repos\peer\peer\peer.cpp(217): warning C4244: “初始化”: 从“__int64”转换到“unsigned int”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(219): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(222): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(245): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(270): warning C4244: “初始化”: 从“__int64”转换到“unsigned int”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(273): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(276): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(301): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(333): warning C4244: “初始化”: 从“__int64”转换到“unsigned int”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(334): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(337): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(340): warning C4244: “参数”: 从“__int64”转换到“long”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(342): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(361): warning C4244: “初始化”: 从“__int64”转换到“unsigned int”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(362): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(365): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(368): warning C4244: “参数”: 从“__int64”转换到“long”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(370): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(379): warning C4477: “sscanf”: 格式字符串“%d”需要类型“int *”的参数，但可变参数 2 拥有了类型“USHORT *”
+  c:\users\only\source\repos\peer\peer\peer.cpp(379): note: 请考虑在格式字符串中使用“%hd”
+c:\users\only\source\repos\peer\peer\peer.cpp(472): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(502): warning C4244: “参数”: 从“__int64”转换到“size_t”，可能丢失数据
+c:\users\only\source\repos\peer\peer\peer.cpp(133): warning C4715: “init_peer_connection”: 不是所有的控件路径都返回值
+c:\users\only\source\repos\peer\peer\peer.cpp(184): warning C4715: “connect”: 不是所有的控件路径都返回值
+c:\users\only\source\repos\peer\peer\peer.cpp(163): warning C4715: “init_tracker_connection”: 不是所有的控件路径都返回值
+  Peer.vcxproj -> C:\Users\only\source\repos\Peer\Debug\Peer.exe
