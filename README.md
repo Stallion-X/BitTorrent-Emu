@@ -1,6 +1,8 @@
 # BitTorrent-Emu
 An emulation of BitTorrent by Win32 Socket.
 
+模拟实现BT协议（包含Tracker服务器）
+
 初版实现，之后有空会重构和增加重传机制
 
 初次使用需要修改宏定义的路径
