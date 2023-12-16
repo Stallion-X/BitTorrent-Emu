@@ -5,7 +5,7 @@ An emulation of BitTorrent by Win32 Socket.
 
 初版实现，之后有空会重构增加重传机制
 
-再之后会尝试在此基础上向BT协议栈靠拢
+再之后会尝试在此基础上向标准BT协议栈靠拢
 
 初次使用需要修改宏定义的路径
 
