@@ -3,6 +3,8 @@
 #include <winsock.h>
 #include <string>
 #include <sstream>
+#include "../../bencode.h"
+#include "../../bt_protocol.h"
 #pragma comment(lib,"ws2_32.lib")
 #define NO_FLAGS_SET 0
 #define PORT (u_short) 44965
@@ -38,6 +40,12 @@ int recv_single_chunk();
 void loop_mode_recv();
 void request_single_chunk(int index);
 void recv_chunk_request();
+void send_bt_handshake();
+void recv_bt_handshake();
+void send_bt_message(unsigned char msg_id, const char* payload, int payload_len);
+void recv_bt_message();
+void send_bt_interested();
+void send_bt_request(int piece_index, int block_offset, int block_length);
 
 WSADATA Data;
 SOCKADDR_IN destSockAddr;
@@ -403,43 +411,94 @@ void torrent_reader()
 	cout << "Reading Torrent..." << endl;
 	FILE *torrent;
 	string path = TORRENT_PATH + string("test") + ".torrent";
-	if ((torrent = fopen(path.c_str(), "r")) == NULL) {  //以文本写入/更新方式打开 创建新文件
+	if ((torrent = fopen(path.c_str(), "rb")) == NULL) {
 		cerr << "Fail to open file!";
 		exit(0);
 	}
-	char buf[100];
-	char port_str[100];
-	for (int i = 0; fgets(buf, 100, torrent) != NULL;i++) {
-		if (i == 0)
-		{
-			memcpy(filename, buf, 100);
+	
+	fseek(torrent, 0, SEEK_END);
+	long file_size = ftell(torrent);
+	fseek(torrent, 0, SEEK_SET);
+	
+	char* buffer = new char[file_size + 1];
+	fread(buffer, 1, file_size, torrent);
+	buffer[file_size] = '\0';
+	fclose(torrent);
+	
+	try {
+		string torrent_data(buffer, file_size);
+		auto torrent_dict = BencodeParser::parse(torrent_data);
+		
+		if (torrent_dict->type == BencodeType::DICTIONARY) {
+			if (torrent_dict->dict_value.find("announce") != torrent_dict->dict_value.end()) {
+				string announce_url = torrent_dict->dict_value["announce"]->string_value;
+				size_t protocol_end = announce_url.find("://");
+				if (protocol_end != string::npos) {
+					string rest = announce_url.substr(protocol_end + 3);
+					size_t colon_pos = rest.find(':');
+					size_t slash_pos = rest.find('/');
+					
+					if (colon_pos != string::npos && slash_pos != string::npos) {
+						strcpy(tracker_ip, rest.substr(0, colon_pos).c_str());
+						tracker_port = stoi(rest.substr(colon_pos + 1, slash_pos - colon_pos - 1));
+					}
+				}
+			}
+			
+			if (torrent_dict->dict_value.find("info") != torrent_dict->dict_value.end()) {
+				auto info_dict = torrent_dict->dict_value["info"];
+				if (info_dict->dict_value.find("name") != info_dict->dict_value.end()) {
+					strcpy(filename, info_dict->dict_value["name"]->string_value.c_str());
+				}
+				if (info_dict->dict_value.find("length") != info_dict->dict_value.end()) {
+					file_size = info_dict->dict_value["length"]->int_value;
+				}
+			}
 		}
-		else if (i == 1)
-		{
-			memcpy(tracker_ip, buf,100);
+	} catch (const std::exception& e) {
+		cerr << "Error parsing torrent file: " << e.what() << endl;
+		
+		fclose(torrent);
+		if ((torrent = fopen(path.c_str(), "r")) == NULL) {
+			cerr << "Fail to open file!";
+			exit(0);
 		}
-		else if (i == 2)
-		{
-			memcpy(port_str, buf, 100);
+		char buf[100];
+		char port_str[100];
+		for (int i = 0; fgets(buf, 100, torrent) != NULL;i++) {
+			if (i == 0)
+			{
+				memcpy(filename, buf, 100);
+			}
+			else if (i == 1)
+			{
+				memcpy(tracker_ip, buf,100);
+			}
+			else if (i == 2)
+			{
+				memcpy(port_str, buf, 100);
+			}
+			memset(buf, 0, 100);
 		}
-		memset(buf, 0, 100);
+		char *tmp = NULL;
+		if ((tmp = strstr(filename, "\n")))
+		{
+			*tmp = '\0';
+		}
+		if ((tmp = strstr(tracker_ip, "\n")))
+		{
+			*tmp = '\0';
+		}
+		if ((tmp = strstr(port_str, "\n")))
+		{
+			*tmp = '\0';
+		}
+		stringstream strIn;
+		strIn << port_str;
+		strIn >> tracker_port;
 	}
-	char *tmp = NULL;
-	if ((tmp = strstr(filename, "\n")))
-	{
-		*tmp = '\0';
-	}
-	if ((tmp = strstr(tracker_ip, "\n")))
-	{
-		*tmp = '\0';
-	}
-	if ((tmp = strstr(port_str, "\n")))
-	{
-		*tmp = '\0';
-	}
-	stringstream strIn;
-	strIn << port_str;
-	strIn >> tracker_port;
+	
+	delete[] buffer;
 	cout<< "filename:" << filename << endl;
 	cout << "tracker_ip:" << tracker_ip << endl;
 	cout << "tracker_port:" << tracker_port << endl;
@@ -583,10 +642,16 @@ void request_single_chunk(int index)
 {
 	init_peer_connection();
 	connect();
-	char i_str[100];
-	itoa(index,i_str,10);
-	send(destSocket, i_str, sizeof(i_str), NO_FLAGS_SET);
-	Sleep(100);
+	
+	send_bt_handshake();
+	
+	char handshake_response[68];
+	recv(destSocket, handshake_response, 68, NO_FLAGS_SET);
+	
+	send_bt_interested();
+	
+	send_bt_request(index, 0, file_size / CHUNK_COUNT);
+	
 	recv_header();
 	recv_single_chunk();
 	Sleep(100);
@@ -597,12 +662,13 @@ void request_single_chunk(int index)
 void recv_chunk_request()
 {
 	cout << "Receiving chunk requests..." << endl;
+	recv_bt_handshake();
+	
 	while (1)
 	{
 		cout << "Receiving..." << endl;
-		char i_str[100];
-		numrcv = recv(clientSocket, (char *)&buffer, sizeof(buffer), NO_FLAGS_SET);
-		cout << buffer << endl;
+		recv_bt_message();
+		
 		if ((numrcv == 0) || (numrcv == SOCKET_ERROR))
 		{
 			cout << "Connection terminated." << endl;
@@ -616,13 +682,108 @@ void recv_chunk_request()
 				<< endl;
 			init_server();
 		}
-		if (numrcv > 0)
-		{
-			memcpy(i_str, buffer, 100);
-			memset(buffer, 0, MAXBUFLEN);
-			int index = atoi(i_str);
-			send_single_chunk(index);
-			memset(buffer, 0, MAXBUFLEN);
+	}
+}
+
+void send_bt_handshake()
+{
+	std::string handshake = BTProtocol::create_handshake("", "PEER_ID_12345678901");
+	send(destSocket, handshake.c_str(), handshake.length(), NO_FLAGS_SET);
+	cout << "Sent BT handshake" << endl;
+}
+
+void recv_bt_handshake()
+{
+	char handshake[68];
+	numrcv = recv(clientSocket, handshake, 68, NO_FLAGS_SET);
+	if (BTProtocol::validate_handshake(handshake, numrcv)) {
+		cout << "Received valid BT handshake" << endl;
+		std::string response = BTProtocol::create_handshake("", "PEER_ID_SERVER_01");
+		send(clientSocket, response.c_str(), response.length(), NO_FLAGS_SET);
+	} else {
+		cout << "Invalid handshake received" << endl;
+	}
+}
+
+void send_bt_message(unsigned char msg_id, const char* payload, int payload_len)
+{
+	std::string message = BTProtocol::create_message(msg_id, payload, payload_len);
+	send(clientSocket, message.c_str(), message.length(), NO_FLAGS_SET);
+}
+
+void recv_bt_message()
+{
+	char msg_buffer[1024];
+	numrcv = recv(clientSocket, msg_buffer, sizeof(msg_buffer), NO_FLAGS_SET);
+	if (numrcv <= 0) return;
+	
+	try {
+		BTMessage msg = BTProtocol::parse_message(msg_buffer, numrcv);
+		
+		if (msg.id == 255) {
+			cout << "Received keep-alive message" << endl;
+			return;
 		}
-	} /* while */
+		
+		cout << "Received BT message ID: " << (int)msg.id << endl;
+		
+		switch (msg.id) {
+			case BT_MSG_CHOKE:
+				cout << "Received choke" << endl;
+				break;
+			case BT_MSG_UNCHOKE:
+				cout << "Received unchoke" << endl;
+				break;
+			case BT_MSG_INTERESTED:
+				cout << "Received interested" << endl;
+				send_bt_message(BT_MSG_UNCHOKE, nullptr, 0);
+				break;
+			case BT_MSG_NOT_INTERESTED:
+				cout << "Received not interested" << endl;
+				break;
+			case BT_MSG_REQUEST:
+				if (msg.length >= 13) {
+					int piece_index = (msg.payload[0] << 24) | (msg.payload[1] << 16) | (msg.payload[2] << 8) | msg.payload[3];
+					int block_offset = (msg.payload[4] << 24) | (msg.payload[5] << 16) | (msg.payload[6] << 8) | msg.payload[7];
+					int block_length = (msg.payload[8] << 24) | (msg.payload[9] << 16) | (msg.payload[10] << 8) | msg.payload[11];
+					cout << "Received request for piece " << piece_index << " offset " << block_offset << " length " << block_length << endl;
+					send_single_chunk(piece_index);
+				}
+				break;
+		}
+		
+		if (msg.payload) {
+			delete[] msg.payload;
+		}
+	} catch (const std::exception& e) {
+		cout << "Error parsing BT message: " << e.what() << endl;
+	}
+}
+
+void send_bt_interested()
+{
+	send_bt_message(BT_MSG_INTERESTED, nullptr, 0);
+	cout << "Sent interested message" << endl;
+}
+
+void send_bt_request(int piece_index, int block_offset, int block_length)
+{
+	char payload[12];
+	payload[0] = (piece_index >> 24) & 0xFF;
+	payload[1] = (piece_index >> 16) & 0xFF;
+	payload[2] = (piece_index >> 8) & 0xFF;
+	payload[3] = piece_index & 0xFF;
+	
+	payload[4] = (block_offset >> 24) & 0xFF;
+	payload[5] = (block_offset >> 16) & 0xFF;
+	payload[6] = (block_offset >> 8) & 0xFF;
+	payload[7] = block_offset & 0xFF;
+	
+	payload[8] = (block_length >> 24) & 0xFF;
+	payload[9] = (block_length >> 16) & 0xFF;
+	payload[10] = (block_length >> 8) & 0xFF;
+	payload[11] = block_length & 0xFF;
+	
+	send_bt_message(BT_MSG_REQUEST, payload, 12);
+	cout << "Sent request for piece " << piece_index << endl;
 }
